@@ -1,53 +1,67 @@
 import { google } from 'googleapis';
 import keys from '../../../../credentials.json';
 
-async function handlerGetSheet(req, res) {
-  console.log("method ", req)
+async function GET(req, res) {
   // Initialize the Google Sheets API client
   const client = new google.auth.JWT(
-    keys.client_email,
+    process.env.CLIENT_EMAIL,
     null,
-    keys.private_key,
+    process.env.PRIVATE_KEY,
     ['https://www.googleapis.com/auth/spreadsheets']
   );
   const sheets = google.sheets({ version: 'v4', auth: client });
 
   // Handle the GET request
   if (req.method === 'GET') {
-  const { spreadsheetId, range } = req.query;
-
+    const spreadsheetId = req.nextUrl.searchParams.get('spreadsheetId');
+    const range = req.nextUrl.searchParams.get('range');
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range,
     });
-    res.status(200).json(response.data.values);
+    return Response.json(response.data.values);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return Response.json({ error: error.message });
   }
 }
+}
+
+async function POST(req, res) {
+  // Initialize the Google Sheets API client
+  const data = await req.json();
+  
+  const client = new google.auth.JWT(
+    process.env.CLIENT_EMAIL,
+    null,
+    process.env.PRIVATE_KEY,
+    ['https://www.googleapis.com/auth/spreadsheets']
+  );
+  const sheets = google.sheets({ version: 'v4', auth: client });
+
   // Handle the POST request
-  else if (req.method === 'POST') {
-  const { spreadsheetId, range, values } = req.body;
+    const spreadsheetId = data.spreadsheetId; 
+    const range = data.range; 
+    const values = data.values; 
 
-  try {
-    const response = await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range,
-      valueInputOption: 'USER_ENTERED',
-      resource: { values },
-    });
-    res.status(200).json(response.data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-}
-// Handle other methods
-else {
-  res.setHeader('Allow', ['GET', 'POST']);
-  res.status(405).end(`Method ${req.method} Not Allowed`);
-}
+    try {
+      const response = await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range,
+        valueInputOption: 'RAW', // Or 'USER_ENTERED'
+        insertDataOption: 'INSERT_ROWS', // Optional
+        resource: {
+          values: values, // 2D array of values to append
+        },
+      });
+
+      // Respond with the appended values or some success message
+      return  Response.json(response.data);
+    } catch (error) {
+      // Handle errors, such as invalid spreadsheetId or range, or API errors
+      return  Response.json({ error: error.message });
+    }
 
 }
 
-export  { handlerGetSheet }
+export  { GET, POST }
